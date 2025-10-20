@@ -12,39 +12,46 @@ class ExerciseGrader:
         correct_indices = []
         wrong_indices = []
 
+        # 尝试多种编码读取文件（优先UTF-8，其次GBK）
+        encodings = ['utf-8', 'gbk', 'gb2312']
+
+        def read_file_with_encoding(file_path: str) -> List[str]:
+            for encoding in encodings:
+                try:
+                    with open(file_path, 'r', encoding=encoding) as f:
+                        return f.readlines()
+                except UnicodeDecodeError:
+                    continue
+            raise Exception(f"文件 {file_path} 无法用以下编码解析: {encodings}")
+
         try:
-            with open(exercise_file, 'r', encoding='utf-8') as ex_file, \
-                    open(answer_file, 'r', encoding='utf-8') as ans_file:
-                exercises = ex_file.readlines()
-                answers = ans_file.readlines()
+            # 使用容错编码方式读取文件
+            exercises = read_file_with_encoding(exercise_file)
+            answers = read_file_with_encoding(answer_file)
 
-                for i, (exercise, answer) in enumerate(zip(exercises, answers), 1):
-                    exercise = exercise.strip()
-                    answer = answer.strip()
+            for i, (exercise, answer) in enumerate(zip(exercises, answers), 1):
+                # 后续逻辑保持不变...
+                exercise = exercise.strip()
+                answer = answer.strip()
 
-                    if not exercise or not answer:
-                        continue
+                if not exercise or not answer:
+                    continue
 
-                    # 提取表达式（去掉等号）
-                    if '=' in exercise:
-                        expr = exercise.split('=')[0].strip()
+                if '=' in exercise:
+                    expr = exercise.split('=')[0].strip()
+                else:
+                    expr = exercise.strip()
+
+                try:
+                    computed_result = self.expression_parser.evaluate_expression(expr)
+                    expected_result = Fraction.from_string(answer)
+
+                    if computed_result == expected_result:
+                        correct_indices.append(i)
                     else:
-                        expr = exercise.strip()
-
-                    try:
-                        # 计算表达式值
-                        computed_result = self.expression_parser.evaluate_expression(expr)
-
-                        # 解析答案
-                        expected_result = Fraction.from_string(answer)
-
-                        # 比较结果
-                        if computed_result == expected_result:
-                            correct_indices.append(i)
-                        else:
-                            wrong_indices.append(i)
-                    except Exception:
                         wrong_indices.append(i)
+                except Exception:
+                    wrong_indices.append(i)
 
         except FileNotFoundError as e:
             raise FileNotFoundError(f"文件未找到: {e}")

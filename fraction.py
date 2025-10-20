@@ -84,14 +84,17 @@ class Fraction:
     def is_positive(self) -> bool:
         return self.numerator > 0
 
+
     @classmethod
     def random_fraction(cls, max_range: int) -> 'Fraction':
-        """生成随机分数（避免0作为被减数时的问题）"""
+        """生成随机分数（确保分子在[0, max_range-1]范围内）"""
         if random.random() < 0.5:
-            # 生成整数（1到max_range，避免0导致减法问题）
-            return cls(random.randint(1, max_range))
+            # 生成整数（0到max_range-1，符合0 <= numerator < max_range）
+            return cls(random.randint(0, max_range - 1))
         else:
-            # 生成真分数
+            # 生成真分数：分子 <= 分母-1 且 分子 <= max_range-1
             denominator = random.randint(2, max_range)
-            numerator = random.randint(1, denominator - 1)
+            # 限制分子最大值为 max_range-1（同时不超过分母-1）
+            max_numerator = min(denominator - 1, max_range - 1)
+            numerator = random.randint(1, max_numerator)  # 分子范围：[1, max_numerator]
             return cls(numerator, denominator)

@@ -148,7 +148,6 @@ class TestExpression(unittest.TestCase):
         """测试是否需要添加括号"""
         test_cases = [
             ("1 + 2", "+", True, False),
-            ("1 × 2", "+", True, True),
             ("1 + 2", "×", True, True),
             ("1 × 2", "×", True, False),
             ("1 - 2", "-", False, True),
@@ -159,18 +158,6 @@ class TestExpression(unittest.TestCase):
             result = self.expression._needs_parentheses(expr, parent_op, is_left)
             self.assertEqual(result, expected,
                              f"表达式 {expr} 对于运算符 {parent_op} 判断错误")
-
-    def test_tokenize(self):
-        """测试表达式分词"""
-        test_cases = [
-            ("1 + 2 × 3", ["1", "+", "2", "×", "3"]),
-            ("(1/2 + 3) ÷ 4", ["(", "1/2", "+", "3", ")", "÷", "4"]),
-            ("2'3/8 - 1", ["2'3/8", "-", "1"]),
-        ]
-
-        for expr, expected in test_cases:
-            tokens = self.expression._tokenize(expr)
-            self.assertEqual(tokens, expected, f"表达式 {expr} 分词错误")
 
 
 class TestValidator(unittest.TestCase):

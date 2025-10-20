@@ -78,20 +78,65 @@ class Expression:
 
     def _needs_parentheses(self, expr: str, parent_op: str, is_left: bool) -> bool:
         """判断是否需要添加括号"""
-        if '(' in expr and ')' in expr:
+        # 如果表达式已经是单个数字，不需要括号
+        if not any(op in expr for op in self.operators):
             return False
 
-        # 检查子表达式运算符优先级
+        # 提取子表达式的主要运算符
+        sub_op = None
         for op in self.operators:
-            if op in expr and self.priority[op] < self.priority[parent_op]:
+            if self._is_main_operator(expr, op):
+                sub_op = op
+                break
+
+        if sub_op is None:
+            return False
+
+        # 比较优先级
+        if self.priority[sub_op] < self.priority[parent_op]:
+            return True
+
+        # 相同优先级时的特殊情况
+        if self.priority[sub_op] == self.priority[parent_op]:
+            # 对于 + 和 ×，左操作数不需要括号，右操作数需要括号
+            if parent_op in ['+', '×']:
+                return not is_left
+            # 对于 - 和 ÷，右操作数总是需要括号
+            elif parent_op in ['-', '÷']:
+                return not is_left
+
+        # 如果子表达式优先级更高，不需要括号
+        return False
+
+    def _is_main_operator(self, expr: str, op: str) -> bool:
+        """检查运算符是否是表达式的主要（最外层）运算符"""
+        # 移除最外层的括号（如果有）
+        stripped_expr = expr.strip()
+        if stripped_expr.startswith('(') and stripped_expr.endswith(')'):
+            # 检查括号是否匹配
+            bracket_count = 0
+            for i, char in enumerate(stripped_expr):
+                if char == '(':
+                    bracket_count += 1
+                elif char == ')':
+                    bracket_count -= 1
+                    if bracket_count == 0 and i < len(stripped_expr) - 1:
+                        # 括号没有包围整个表达式
+                        break
+            if bracket_count == 0:
+                stripped_expr = stripped_expr[1:-1].strip()
+
+        # 查找不在括号内的运算符
+        bracket_count = 0
+        for i, char in enumerate(stripped_expr):
+            if char == '(':
+                bracket_count += 1
+            elif char == ')':
+                bracket_count -= 1
+            elif bracket_count == 0 and char == op:
+                # 检查这个运算符是否真的是主要运算符
+                # 确保它不在其他运算符的范围内
                 return True
-
-        # 减法/除法的右操作数特殊处理
-        if not is_left and parent_op in ['-', '÷']:
-            for op in self.operators:
-                if op in expr:
-                    return True
-
         return False
 
     def _is_valid_expression(self, expr: str, result: Fraction) -> bool:
