@@ -1,4 +1,5 @@
 import random
+import re
 from typing import List, Tuple
 from fraction import Fraction
 
@@ -7,28 +8,51 @@ class Expression:
     def __init__(self):
         self.operators = ['+', '-', '×', '÷']
         self.priority = {'+': 1, '-': 1, '×': 2, '÷': 2}
+        # 新增：预编译分词正则，替代循环分词
+        self.token_pattern = re.compile(r'(\d+/?\d*\'?\d*|\d+|\(|\)|[+\-×÷])')
 
     def generate_expression(self, max_range: int, max_operators: int = 3) -> Tuple[str, Fraction]:
-        """生成表达式和结果（确保所有子步骤符合约束）"""
+        """生成表达式（主动规避无效运算符，减少重试）"""
         while True:
             try:
                 num_operators = random.randint(1, max_operators)
                 num_operands = num_operators + 1
 
-                # 生成操作数
+                # 生成操作数（优先非零值，减少除法无效性）
                 operands = [Fraction.random_fraction(max_range) for _ in range(num_operands)]
+                # 生成符合约束的运算符（核心优化）
+                operators = self._generate_valid_operators(operands, num_operators)
 
-                # 生成运算符
-                operators = [random.choice(self.operators) for _ in range(num_operators)]
-
-                # 构建表达式树（带中间结果校验）
+                # 构建表达式树
                 expr_str, result = self._build_expression(operands, operators)
 
-                # 最终验证
                 if self._is_valid_expression(expr_str, result):
                     return expr_str, result
             except (ValueError, ZeroDivisionError):
                 continue
+
+    def _generate_valid_operators(self, operands: List[Fraction], num_ops: int) -> List[str]:
+        """主动生成符合约束的运算符，减少后续异常"""
+        operators = []
+        for i in range(num_ops):
+            left, right = operands[i], operands[i+1]
+            # 20%概率尝试减法（确保left >= right）
+            if random.random() < 0.2 and left >= right:
+                operators.append('-')
+                continue
+            # 20%概率尝试除法（确保结果为真分数）
+            if random.random() < 0.2:
+                if right.numerator != 0:
+                    div_result = left / right
+                    if div_result.is_proper_fraction():
+                        operators.append('÷')
+                        continue
+            # 默认使用加法/乘法（无约束风险）
+            operators.append(random.choice(['+', '×']))
+        # 若运算符数量不足，补充（应对上述条件均不满足的情况）
+        while len(operators) < num_ops:
+            operators.append(random.choice(['+', '×']))
+        return operators
 
     def _build_expression(self, operands: List[Fraction], operators: List[str]) -> Tuple[str, Fraction]:
         """构建表达式树（递归检查所有子表达式约束）"""
@@ -187,22 +211,11 @@ class Expression:
         tokens = self._tokenize(expr)
         return parse_expression(tokens)
 
+    # 优化分词方法：用预编译正则替代循环
     def _tokenize(self, expr: str) -> List[str]:
-        tokens = []
-        i = 0
-        while i < len(expr):
-            if expr[i] in '()+-×÷':
-                tokens.append(expr[i])
-                i += 1
-            else:
-                j = i
-                while j < len(expr) and expr[j] not in '()+-×÷':
-                    j += 1
-                token = expr[i:j]
-                if token:
-                    tokens.append(token)
-                i = j
-        return tokens
+        expr = expr.replace(' ', '')
+        return [t for t in self.token_pattern.findall(expr) if t]  # 过滤空字符串
+
 
     def _apply_operator(self, values: List[Fraction], ops: List[str]):
         if len(values) < 2 or not ops:
