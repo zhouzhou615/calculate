@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Tuple, Union
+from typing import Tuple
 
 
 class Fraction:
@@ -11,37 +11,30 @@ class Fraction:
             numerator = -numerator
             denominator = -denominator
 
-        gcd_val = math.gcd(numerator, denominator)
+        gcd_val = math.gcd(abs(numerator), abs(denominator))  # 修复gcd计算（取绝对值）
         self.numerator = numerator // gcd_val
         self.denominator = denominator // gcd_val
 
-        # 确保分母为正
-        if self.denominator < 0:
-            self.numerator = -self.numerator
-            self.denominator = -self.denominator
-
     @classmethod
     def from_string(cls, frac_str: str) -> 'Fraction':
-        """从字符串创建分数，支持 '3/5' 和 '2'3/8' 格式"""
+        frac_str = frac_str.strip()
         if "'" in frac_str:
-            # 带分数格式
-            whole_part, frac_part = frac_str.split("'")
+            whole_part, frac_part = frac_str.split("'", 1)
             whole = int(whole_part)
             num, denom = map(int, frac_part.split('/'))
+            # 支持负数带分数解析
+            if whole < 0:
+                return cls(whole * denom - num, denom)
             return cls(whole * denom + num, denom)
         elif '/' in frac_str:
-            # 真分数格式
             num, denom = map(int, frac_str.split('/'))
             return cls(num, denom)
         else:
-            # 整数格式
             return cls(int(frac_str))
 
     def to_string(self) -> str:
-        """转换为字符串表示"""
         if self.denominator == 1:
             return str(self.numerator)
-
         if abs(self.numerator) < self.denominator:
             return f"{self.numerator}/{self.denominator}"
         else:
@@ -52,15 +45,14 @@ class Fraction:
             else:
                 return f"{whole}'{remainder}/{self.denominator}"
 
+    # 运算符重载方法保持不变
     def __add__(self, other: 'Fraction') -> 'Fraction':
-        new_num = (self.numerator * other.denominator +
-                   other.numerator * self.denominator)
+        new_num = self.numerator * other.denominator + other.numerator * self.denominator
         new_denom = self.denominator * other.denominator
         return Fraction(new_num, new_denom)
 
     def __sub__(self, other: 'Fraction') -> 'Fraction':
-        new_num = (self.numerator * other.denominator -
-                   other.numerator * self.denominator)
+        new_num = self.numerator * other.denominator - other.numerator * self.denominator
         new_denom = self.denominator * other.denominator
         return Fraction(new_num, new_denom)
 
@@ -77,32 +69,29 @@ class Fraction:
         return Fraction(new_num, new_denom)
 
     def __eq__(self, other: 'Fraction') -> bool:
-        return (self.numerator * other.denominator ==
-                other.numerator * self.denominator)
+        return self.numerator * other.denominator == other.numerator * self.denominator
 
     def __lt__(self, other: 'Fraction') -> bool:
-        return (self.numerator * other.denominator <
-                other.numerator * self.denominator)
+        return self.numerator * other.denominator < other.numerator * self.denominator
 
     def __le__(self, other: 'Fraction') -> bool:
-        return (self.numerator * other.denominator <=
-                other.numerator * self.denominator)
+        return self.numerator * other.denominator <= other.numerator * self.denominator
 
     def is_proper_fraction(self) -> bool:
         """判断是否为真分数（绝对值小于1）"""
         return abs(self.numerator) < self.denominator
 
     def is_positive(self) -> bool:
-        """判断是否为正数"""
         return self.numerator > 0
 
     @classmethod
     def random_fraction(cls, max_range: int) -> 'Fraction':
-        """生成随机分数"""
-        # 50%概率生成整数，50%概率生成真分数
+        """生成随机分数（避免0作为被减数时的问题）"""
         if random.random() < 0.5:
-            return cls(random.randint(0, max_range - 1))
+            # 生成整数（1到max_range，避免0导致减法问题）
+            return cls(random.randint(1, max_range))
         else:
+            # 生成真分数
             denominator = random.randint(2, max_range)
             numerator = random.randint(1, denominator - 1)
             return cls(numerator, denominator)

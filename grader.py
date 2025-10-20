@@ -15,7 +15,6 @@ class ExerciseGrader:
         try:
             with open(exercise_file, 'r', encoding='utf-8') as ex_file, \
                     open(answer_file, 'r', encoding='utf-8') as ans_file:
-
                 exercises = ex_file.readlines()
                 answers = ans_file.readlines()
 
