@@ -10,7 +10,11 @@ class Expression:
 
     def generate_expression(self, max_range: int, max_operators: int = 3) -> Tuple[str, Fraction]:
         """生成表达式和结果"""
-        while True:
+        attempt_count = 0
+        max_attempts = 1000  # 防止无限循环
+
+        while attempt_count < max_attempts:
+            attempt_count += 1
             try:
                 num_operators = random.randint(1, max_operators)
                 num_operands = num_operators + 1
@@ -22,27 +26,32 @@ class Expression:
                 operators = [random.choice(self.operators) for _ in range(num_operators)]
 
                 # 构建表达式树
-                expr_str, result = self._build_expression(operands, operators)
+                expr_str, result, intermediate_values = self._build_expression_with_validation(operands, operators)
 
                 # 验证结果有效性
-                if self._is_valid_expression(expr_str, result):
+                if self._is_valid_expression(expr_str, result, intermediate_values):
                     return expr_str, result
             except (ValueError, ZeroDivisionError):
                 continue
 
-    def _build_expression(self, operands: List[Fraction], operators: List[str]) -> Tuple[str, Fraction]:
-        """构建表达式树"""
+        # 如果多次尝试都失败，返回一个简单的表达式
+        simple_frac = Fraction.random_fraction(max_range)
+        return f"{simple_frac.to_string()} = ", simple_frac
+
+    def _build_expression_with_validation(self, operands: List[Fraction], operators: List[str]) -> Tuple[
+        str, Fraction, List[Tuple[str, Fraction]]]:
+        """构建表达式树并记录中间值用于验证"""
         if len(operands) == 1:
-            return operands[0].to_string(), operands[0]
+            return operands[0].to_string(), operands[0], [(operands[0].to_string(), operands[0])]
 
         # 随机选择分割点
         split_point = random.randint(1, len(operands) - 1)
 
         # 递归构建左右子树
-        left_expr, left_val = self._build_expression(
+        left_expr, left_val, left_intermediates = self._build_expression_with_validation(
             operands[:split_point], operators[:split_point - 1]
         )
-        right_expr, right_val = self._build_expression(
+        right_expr, right_val, right_intermediates = self._build_expression_with_validation(
             operands[split_point:], operators[split_point - 1:]
         )
 
@@ -52,11 +61,20 @@ class Expression:
         if op == '+':
             result = left_val + right_val
         elif op == '-':
+            # 检查减法是否会产生负数
+            if left_val < right_val:
+                raise ValueError("减法运算会产生负数")
             result = left_val - right_val
         elif op == '×':
             result = left_val * right_val
         elif op == '÷':
+            # 检查除数是否为0
+            if right_val.numerator == 0:
+                raise ValueError("除数不能为0")
+            # 检查除法结果是否为真分数
             result = left_val / right_val
+            if not result.is_proper_fraction():
+                raise ValueError("除法结果不是真分数")
 
         # 添加括号
         left_needs_paren = self._needs_parentheses(left_expr, op, is_left=True)
@@ -66,7 +84,48 @@ class Expression:
         right_str = f"({right_expr})" if right_needs_paren else right_expr
 
         expr_str = f"{left_str} {op} {right_str}"
-        return expr_str, result
+
+        # 收集所有中间值用于验证
+        intermediate_values = left_intermediates + right_intermediates + [(expr_str, result)]
+
+        return expr_str, result, intermediate_values
+
+    def _validate_intermediate_values(self, intermediates: List[Tuple[str, Fraction]]) -> bool:
+        """验证所有中间计算过程"""
+        for expr, value in intermediates:
+            # 检查每个子表达式是否会产生负数
+            if not self._validate_sub_expression(expr, value):
+                return False
+        return True
+
+    def _validate_sub_expression(self, expr: str, value: Fraction) -> bool:
+        """验证子表达式"""
+        # 检查减法运算
+        if '-' in expr:
+            # 解析减法运算，确保被减数不小于减数
+            parts = expr.split('-', 1)
+            if len(parts) == 2:
+                try:
+                    # 计算左右操作数
+                    left_part = parts[0].strip()
+                    right_part = parts[1].strip()
+
+                    # 移除可能的外层括号
+                    if left_part.startswith('(') and left_part.endswith(')'):
+                        left_part = left_part[1:-1]
+                    if right_part.startswith('(') and right_part.endswith(')'):
+                        right_part = right_part[1:-1]
+
+                    left_val = self.evaluate_expression(left_part)
+                    right_val = self.evaluate_expression(right_part)
+
+                    if left_val < right_val:
+                        return False
+                except:
+                    # 如果解析失败，保守起见返回False
+                    return False
+
+        return True
 
     def _needs_parentheses(self, expr: str, parent_op: str, is_left: bool) -> bool:
         """判断是否需要添加括号"""
@@ -86,18 +145,19 @@ class Expression:
 
         return False
 
-    def _is_valid_expression(self, expr: str, result: Fraction) -> bool:
+    def _is_valid_expression(self, expr: str, result: Fraction, intermediates: List[Tuple[str, Fraction]]) -> bool:
         """验证表达式有效性"""
-        # 检查结果是否为真分数（对于除法）
-        if '÷' in expr and not result.is_proper_fraction():
+        # 检查运算符数量
+        operator_count = sum(1 for char in expr if char in ['+', '-', '×', '÷'])
+        if operator_count > 3:
             return False
 
-        # 检查计算过程中是否产生负数（通过模拟计算验证）
-        try:
-            # 这里简化验证，实际应该遍历所有子表达式
-            if not result.is_positive() and result != Fraction(0):
-                return False
-        except:
+        # 检查中间计算过程是否产生负数
+        if not self._validate_intermediate_values(intermediates):
+            return False
+
+        # 检查除法结果是否为真分数
+        if '÷' in expr and not result.is_proper_fraction():
             return False
 
         return True

@@ -37,7 +37,7 @@ def generate_exercises(num_exercises: int, max_range: int) -> List[Tuple[str, st
 
     generated_count = 0
     attempt_count = 0
-    max_attempts = num_exercises * 100  # 防止无限循环
+    max_attempts = num_exercises * 200  # 增加尝试次数
 
     while generated_count < num_exercises and attempt_count < max_attempts:
         attempt_count += 1
@@ -55,14 +55,16 @@ def generate_exercises(num_exercises: int, max_range: int) -> List[Tuple[str, st
                     exercises.append((exercise_str, answer_str))
                     validator.add_expression(expr)
                     generated_count += 1
-        except (ValueError, ZeroDivisionError):
+
+                    if generated_count % 100 == 0:
+                        print(f"已生成 {generated_count} 个题目")
+        except (ValueError, ZeroDivisionError) as e:
             continue
 
     if generated_count < num_exercises:
-        print(f"警告: 只生成了 {generated_count} 个有效题目")
+        print(f"警告: 只生成了 {generated_count} 个有效题目（尝试次数: {attempt_count}）")
 
     return exercises
-
 
 def save_to_file(data: List[str], filename: str):
     """保存数据到文件"""
