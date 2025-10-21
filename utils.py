@@ -30,43 +30,35 @@ def parse_arguments():
 
 
 def generate_exercises(num_exercises: int, max_range: int) -> List[Tuple[str, str]]:
-    """生成练习题（优化缓存和尝试次数）"""
+    """生成练习题和答案"""
     exercises = []
     expression_gen = Expression()
     validator = ExpressionValidator()
 
     generated_count = 0
     attempt_count = 0
-    # 降低最大尝试次数（因无效生成减少）
-    max_attempts = num_exercises * 100  # 从200降至100
-    # 新增：滑动窗口缓存（保留最近200个表达式），减少内存占用
-    recent_exprs = set()
-    CACHE_SIZE = 200
+    max_attempts = num_exercises * 200  # 增加尝试次数
 
     while generated_count < num_exercises and attempt_count < max_attempts:
         attempt_count += 1
+
         try:
             expr, result = expression_gen.generate_expression(max_range)
 
-            # 先检查最近缓存（快速去重）
-            normalized = validator._normalize_expression(expr)
-            if normalized in recent_exprs:
-                continue
-
-            # 验证约束
+            # 验证表达式
             if validator.validate_constraints(expr, result):
-                exercise_str = f"{expr} = "
-                answer_str = result.to_string()
-                exercises.append((exercise_str, answer_str))
-                generated_count += 1
-                # 更新缓存（FIFO策略）
-                recent_exprs.add(normalized)
-                if len(recent_exprs) > CACHE_SIZE:
-                    recent_exprs.pop()  # 移除最早加入的元素
+                # 检查是否重复
+                if not validator.is_duplicate(expr):
+                    exercise_str = f"{expr} = "
+                    answer_str = result.to_string()
 
-                if generated_count % 100 == 0:
-                    print(f"已生成 {generated_count} 个题目")
-        except (ValueError, ZeroDivisionError):
+                    exercises.append((exercise_str, answer_str))
+                    validator.add_expression(expr)
+                    generated_count += 1
+
+                    if generated_count % 100 == 0:
+                        print(f"已生成 {generated_count} 个题目")
+        except (ValueError, ZeroDivisionError) as e:
             continue
 
     if generated_count < num_exercises:

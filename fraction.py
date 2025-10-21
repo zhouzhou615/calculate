@@ -87,17 +87,14 @@ class Fraction:
 
     @classmethod
     def random_fraction(cls, max_range: int) -> 'Fraction':
-        """生成随机分数（减少0的生成概率，降低无效除法）"""
-        # 降低整数中0的生成概率（从50%→20%）
-        if random.random() < 0.2:
-            # 生成整数（0的概率为1/3，非零为2/3）
-            if random.random() < 1 / 3:
-                return cls(0)
-            else:
-                return cls(random.randint(1, max_range - 1))  # 非零整数
+        """生成随机分数（确保分子在[0, max_range-1]范围内）"""
+        if random.random() < 0.5:
+            # 生成整数（0到max_range-1，符合0 <= numerator < max_range）
+            return cls(random.randint(0, max_range - 1))
         else:
-            # 生成真分数（保持不变）
+            # 生成真分数：分子 <= 分母-1 且 分子 <= max_range-1
             denominator = random.randint(2, max_range)
+            # 限制分子最大值为 max_range-1（同时不超过分母-1）
             max_numerator = min(denominator - 1, max_range - 1)
-            numerator = random.randint(1, max_numerator)
+            numerator = random.randint(1, max_numerator)  # 分子范围：[1, max_numerator]
             return cls(numerator, denominator)
